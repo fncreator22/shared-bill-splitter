@@ -146,6 +146,12 @@ pnpm --filter bill-splitter-api cf-typegen
 You can use AI tools. Tell us which ones and where in your answers on the form.
 You must understand every line you submit. We check this with your video and in a live call. "The AI wrote it" is not an answer.
 
+## Decisions
+
+1. **Integer Cent Arithmetic & Euclidean Remainder Division**: To eliminate floating-point rounding errors and penny leaks, all currency amounts are stored and manipulated as whole integer cents. When dividing $T$ cents among $N$ members, we compute quotient $q = \lfloor T / N \rfloor$ and remainder $r = T \pmod N$. The first $r$ members (in member addition order) receive $q + 1$ cents and the remaining receive $q$ cents, strictly guaranteeing $\sum \text{shares} = T$.
+2. **Atomic Compare-And-Swap (CAS) with `RETURNING` for Idempotent Payments**: Concurrent requests to pay a share are serialized directly at the database engine level via an atomic `UPDATE shares SET paid_at = ?1, idempotency_key = ?2 WHERE id = ?3 AND bill_id = ?4 AND paid_at IS NULL RETURNING id, member_id, amount_cents, paid_at`. If 0 rows are updated, we inspect the existing record: an identical `Idempotency-Key` replays the original 200 OK response without re-charging, while a differing key returns 409 Conflict.
+3. **Correlated Subquery for Balances & Named Constraints**: Roommate balances are computed using a correlated scalar subquery rather than an unconstrained multi-table join, preventing Cartesian row multiplication across multiple bills. Referential integrity is strictly guarded by 5 named constraints (`chk_bills_total_cents`, `chk_shares_paid_consistency`, `chk_shares_amount_cents`, `fk_members_home`, `fk_shares_bill`).
+
 ## How to submit
 
 1. Click **Use this template**, then **Create a new repository**. Make the repository **public**.
